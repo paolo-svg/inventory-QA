@@ -1,0 +1,7 @@
+.env
+output_cleaned.csv
+output_flagged.csv
+output_log.txt
+.checkpoint.json
+__pycache__/
+*.pyc
