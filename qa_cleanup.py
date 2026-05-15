@@ -262,11 +262,11 @@ def tier1_process(row: dict, place_id_only: bool = False) -> dict:
     pid = row["Master_Place_ID"].strip()
     details = place_details(pid)
 
-    if details is None:
-        return _flag(row, "API_ERROR", "Place Details call failed or returned error")
-
-    if "error" in details or not details.get("id"):
-        return _flag(row, "PLACE_ID_NOT_FOUND", f"API returned error or empty for Place_ID {pid}")
+    if details is None or "error" in (details or {}) or not (details or {}).get("id"):
+        # Stale/expired Place_ID — clear it and fall back to Text Search
+        log.info("Place_ID %s invalid/expired for %r — falling back to Text Search", pid, row["Name"][:50])
+        row["Master_Place_ID"] = ""
+        return tier2_process(row, place_id_only=place_id_only)
 
     changes, proof_parts = apply_corrections(row, details, place_id_only=place_id_only)
 
@@ -328,12 +328,18 @@ def tier2_process(row: dict, place_id_only: bool = False) -> dict:
 
     top = results[0]
     top_name = top.get("displayName", {}).get("text", "")
-    top_score = fuzz.ratio(name.lower(), top_name.lower())
+    top_score = max(
+        fuzz.token_set_ratio(name.lower(), top_name.lower()),
+        fuzz.partial_ratio(name.lower(), top_name.lower()),
+    )
 
     # Check 2nd result gap
     if len(results) >= 2:
         second_name = results[1].get("displayName", {}).get("text", "")
-        second_score = fuzz.ratio(name.lower(), second_name.lower())
+        second_score = max(
+            fuzz.token_set_ratio(name.lower(), second_name.lower()),
+            fuzz.partial_ratio(name.lower(), second_name.lower()),
+        )
         gap = top_score - second_score
     else:
         gap = 100  # only one result
