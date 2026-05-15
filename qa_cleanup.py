@@ -189,10 +189,11 @@ def best_city(parsed: dict) -> str:
 # Row-level QA logic
 # ---------------------------------------------------------------------------
 
-def apply_corrections(row: dict, details: dict) -> tuple[list[str], list[str]]:
+def apply_corrections(row: dict, details: dict, place_id_only: bool = False) -> tuple[list[str], list[str]]:
     """
     Compare API details against row values and mutate row in-place.
     Returns (changes_list, proof_parts).
+    When place_id_only=True, only Master_Place_ID is updated (Phase 1).
     """
     components = details.get("addressComponents", [])
     parsed = parse_components(components)
@@ -213,11 +214,13 @@ def apply_corrections(row: dict, details: dict) -> tuple[list[str], list[str]]:
         row["Master_Place_ID"] = canonical_id
         changes.append(f'Master_Place_ID: "{old}" -> "{canonical_id}"')
 
+    if place_id_only:
+        return changes, proof_parts
+
     # --- City
     google_city = best_city(parsed)
     current_city = row["Master_City"].strip()
     if google_city and current_city != google_city:
-        # Check if the current city matches the state (the specific bug)
         is_state_bug = (
             parsed["admin1"] and
             current_city.lower() == parsed["admin1"].lower()
@@ -254,7 +257,7 @@ def apply_corrections(row: dict, details: dict) -> tuple[list[str], list[str]]:
     return changes, proof_parts
 
 
-def tier1_process(row: dict) -> dict:
+def tier1_process(row: dict, place_id_only: bool = False) -> dict:
     """Process a row with an existing valid Place_ID."""
     pid = row["Master_Place_ID"].strip()
     details = place_details(pid)
@@ -265,23 +268,24 @@ def tier1_process(row: dict) -> dict:
     if "error" in details or not details.get("id"):
         return _flag(row, "PLACE_ID_NOT_FOUND", f"API returned error or empty for Place_ID {pid}")
 
-    changes, proof_parts = apply_corrections(row, details)
+    changes, proof_parts = apply_corrections(row, details, place_id_only=place_id_only)
 
-    # Check for significant city disagreement that might be intentional
-    components = details.get("addressComponents", [])
-    parsed = parse_components(components)
-    google_city = best_city(parsed)
-    current_city_after = row["Master_City"].strip()
-    if (google_city and current_city_after != google_city and
-            _is_significant_mismatch(current_city_after, google_city, parsed)):
-        row["QA_Action"] = "FLAGGED"
-        row["QA_Changes"] = "; ".join(changes) if changes else ""
-        row["QA_Proof"] = "; ".join(proof_parts)
-        row["QA_Confidence"] = ""
-        row["Flag_Reason"] = f"CITY_LOCALITY_MISMATCH_NEEDS_REVIEW: row={current_city_after!r} google={google_city!r}"
-        row["Suggested_Correction"] = google_city
-        stats["flagged"] += 1
-        return row
+    if not place_id_only:
+        # Check for significant city disagreement that might be intentional
+        components = details.get("addressComponents", [])
+        parsed = parse_components(components)
+        google_city = best_city(parsed)
+        current_city_after = row["Master_City"].strip()
+        if (google_city and current_city_after != google_city and
+                _is_significant_mismatch(current_city_after, google_city, parsed)):
+            row["QA_Action"] = "FLAGGED"
+            row["QA_Changes"] = "; ".join(changes) if changes else ""
+            row["QA_Proof"] = "; ".join(proof_parts)
+            row["QA_Confidence"] = ""
+            row["Flag_Reason"] = f"CITY_LOCALITY_MISMATCH_NEEDS_REVIEW: row={current_city_after!r} google={google_city!r}"
+            row["Suggested_Correction"] = google_city
+            stats["flagged"] += 1
+            return row
 
     row["QA_Proof"] = "; ".join(proof_parts)
     row["QA_Confidence"] = ""
@@ -298,7 +302,7 @@ def tier1_process(row: dict) -> dict:
     return row
 
 
-def tier2_process(row: dict) -> dict:
+def tier2_process(row: dict, place_id_only: bool = False) -> dict:
     """Process a row missing a Place_ID via Text Search."""
     name    = row["Name"].strip()
     city    = row["Master_City"].strip()
@@ -363,7 +367,7 @@ def tier2_process(row: dict) -> dict:
 
     # Confident — fill Place_ID and run Tier 1
     row["Master_Place_ID"] = top.get("id", "")
-    row = tier1_process(row)
+    row = tier1_process(row, place_id_only=place_id_only)
 
     # Override action to AUTO_FILLED and record confidence
     if row["QA_Action"] in ("AUTO_CORRECTED", "NO_CHANGE"):
@@ -432,6 +436,8 @@ def main():
                         help="Only process Tier 1 (rows with Place_ID)")
     parser.add_argument("--resume", action="store_true",
                         help="Resume from checkpoint")
+    parser.add_argument("--ops-qa-only", action="store_true",
+                        help="Phase 1: only process rows where Ops QA=checked (Place_ID validation only)")
     args = parser.parse_args()
 
     if not API_KEY:
@@ -454,16 +460,23 @@ def main():
 
     stats["total"] = len(all_rows)
 
+    # Filter candidate rows based on phase
+    if args.ops_qa_only:
+        candidates = [i for i, r in enumerate(all_rows) if r["Ops QA"].strip() == "checked"]
+        log.info("--ops-qa-only: %d rows with Ops QA=checked selected for Phase 1 (Place_ID only)", len(candidates))
+    else:
+        candidates = list(range(len(all_rows)))
+
     # Identify which rows to process
-    tier1_rows = [i for i, r in enumerate(all_rows) if r["Master_Place_ID"].strip().startswith("ChIJ")]
-    tier2_rows = [i for i, r in enumerate(all_rows)
-                  if not r["Master_Place_ID"].strip().startswith("ChIJ") and
-                  (r["Master_City"].strip() or r.get("Master address", "").strip()) and
-                  r["Name"].strip()]
-    skipped_rows = [i for i, r in enumerate(all_rows)
-                    if not r["Master_Place_ID"].strip().startswith("ChIJ") and
-                    not r["Master_City"].strip() and
-                    not r.get("Master address", "").strip()]
+    tier1_rows = [i for i in candidates if all_rows[i]["Master_Place_ID"].strip().startswith("ChIJ")]
+    tier2_rows = [i for i in candidates
+                  if not all_rows[i]["Master_Place_ID"].strip().startswith("ChIJ") and
+                  (all_rows[i]["Master_City"].strip() or all_rows[i].get("Master address", "").strip()) and
+                  all_rows[i]["Name"].strip()]
+    skipped_rows = [i for i in candidates
+                    if not all_rows[i]["Master_Place_ID"].strip().startswith("ChIJ") and
+                    not all_rows[i]["Master_City"].strip() and
+                    not all_rows[i].get("Master address", "").strip()]
 
     stats["skipped_no_location"] = len(skipped_rows)
     for i in skipped_rows:
@@ -502,12 +515,14 @@ def main():
     run_start = datetime.now()
     processed: list[int] = list(already_done)
 
+    place_id_only = args.ops_qa_only
+
     # --- Tier 1
     if work_t1:
         log.info("Starting Tier 1: %d rows with Place_IDs", len(work_t1))
         for idx, row_idx in enumerate(tqdm(work_t1, desc="Tier 1 (Place_ID)", unit="row")):
             try:
-                all_rows[row_idx] = tier1_process(all_rows[row_idx])
+                all_rows[row_idx] = tier1_process(all_rows[row_idx], place_id_only=place_id_only)
             except Exception as exc:
                 log.error("Row %d crashed: %s", row_idx, exc)
                 all_rows[row_idx] = _flag(all_rows[row_idx], "PROCESSING_ERROR", str(exc))
@@ -521,7 +536,7 @@ def main():
         log.info("Starting Tier 2: %d rows without Place_IDs", len(work_t2))
         for idx, row_idx in enumerate(tqdm(work_t2, desc="Tier 2 (Text Search)", unit="row")):
             try:
-                all_rows[row_idx] = tier2_process(all_rows[row_idx])
+                all_rows[row_idx] = tier2_process(all_rows[row_idx], place_id_only=place_id_only)
             except Exception as exc:
                 log.error("Row %d crashed: %s", row_idx, exc)
                 all_rows[row_idx] = _flag(all_rows[row_idx], "PROCESSING_ERROR", str(exc))
@@ -580,8 +595,8 @@ Common issues detected:
     log.info("Wrote %s", OUTPUT_LOG)
     print("\n" + log_text)
 
-    # Clean up checkpoint on full successful run
-    if args.limit is None and not args.tier1_only:
+    # Clean up checkpoint only on a complete (non-limited, non-partial-phase) run
+    if args.limit is None and not args.tier1_only and not args.ops_qa_only:
         if Path(CHECKPOINT_FILE).exists():
             os.remove(CHECKPOINT_FILE)
             log.info("Checkpoint file removed (full run complete)")
