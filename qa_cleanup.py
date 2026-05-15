@@ -432,6 +432,10 @@ def main():
                         help="Only process Tier 1 (rows with Place_ID)")
     parser.add_argument("--resume", action="store_true",
                         help="Resume from checkpoint")
+    parser.add_argument("--ops-qa-only", action="store_true",
+                        help="Only process rows where Ops QA == 'checked' (Phase 1)")
+    parser.add_argument("--ops-qa-unchecked", action="store_true",
+                        help="Only process rows where Ops QA is empty (Phase 2)")
     args = parser.parse_args()
 
     if not API_KEY:
@@ -454,14 +458,29 @@ def main():
 
     stats["total"] = len(all_rows)
 
-    # Identify which rows to process
-    tier1_rows = [i for i, r in enumerate(all_rows) if r["Master_Place_ID"].strip().startswith("ChIJ")]
+    # Ops QA filter (Phase 1 / Phase 2 selection)
+    if args.ops_qa_only and args.ops_qa_unchecked:
+        sys.exit("ERROR: --ops-qa-only and --ops-qa-unchecked are mutually exclusive")
+    if args.ops_qa_only:
+        eligible = {i for i, r in enumerate(all_rows) if r.get("Ops QA", "").strip() == "checked"}
+        log.info("--ops-qa-only: %d of %d rows have Ops QA = 'checked'", len(eligible), len(all_rows))
+    elif args.ops_qa_unchecked:
+        eligible = {i for i, r in enumerate(all_rows) if r.get("Ops QA", "").strip() != "checked"}
+        log.info("--ops-qa-unchecked: %d of %d rows have Ops QA empty", len(eligible), len(all_rows))
+    else:
+        eligible = set(range(len(all_rows)))
+
+    # Identify which rows to process (restricted to eligible)
+    tier1_rows = [i for i, r in enumerate(all_rows)
+                  if i in eligible and r["Master_Place_ID"].strip().startswith("ChIJ")]
     tier2_rows = [i for i, r in enumerate(all_rows)
-                  if not r["Master_Place_ID"].strip().startswith("ChIJ") and
+                  if i in eligible and
+                  not r["Master_Place_ID"].strip().startswith("ChIJ") and
                   (r["Master_City"].strip() or r.get("Master address", "").strip()) and
                   r["Name"].strip()]
     skipped_rows = [i for i, r in enumerate(all_rows)
-                    if not r["Master_Place_ID"].strip().startswith("ChIJ") and
+                    if i in eligible and
+                    not r["Master_Place_ID"].strip().startswith("ChIJ") and
                     not r["Master_City"].strip() and
                     not r.get("Master address", "").strip()]
 
@@ -581,7 +600,8 @@ Common issues detected:
     print("\n" + log_text)
 
     # Clean up checkpoint on full successful run
-    if args.limit is None and not args.tier1_only:
+    if (args.limit is None and not args.tier1_only
+            and not args.ops_qa_only and not args.ops_qa_unchecked):
         if Path(CHECKPOINT_FILE).exists():
             os.remove(CHECKPOINT_FILE)
             log.info("Checkpoint file removed (full run complete)")
