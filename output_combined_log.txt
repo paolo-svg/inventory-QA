@@ -1,0 +1,145 @@
+Aurora Master Table — Combined QA Run Summary
+==============================================
+Generated: 2026-05-17
+Total rows in dataset: 2,924
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 — Place_ID Validation
+Scope: Ops QA = "checked" | 2,560 rows
+Focus: Validate and correct Master_Place_ID only
+Run cost: ~$60.55
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Results:
+  Place_ID confirmed valid (NO_CHANGE):       1,858  (72.6%)
+  Stale/missing ID → new ID found (AUTO_FILLED):  348  (13.6%)
+  Canonical ID updated (AUTO_CORRECTED):         24   (0.9%)
+  Needs human review (FLAGGED):                 330  (12.9%)
+
+API calls:
+  Place Details:  2,393  (~$40.68)
+  Text Search:      621  (~$19.87)
+
+Flagged breakdown:
+  No location data (non-physical entries):   57   → expected, no action needed
+  Ambiguous search results (too close):      39   → 39 have Suggested_Correction
+  No API results found:                      33   → manual Google Maps lookup needed
+  Low name match score:                     196   → 196 have Suggested_Correction
+  Country mismatch:                           5   → manual review
+
+  Rows with a Suggested_Correction ready:   240 / 330
+  Rows needing full manual lookup:           90 / 330
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 2 — Full QA
+Scope: Ops QA = empty | 364 rows
+Focus: Place_ID + city, country, neighborhood, URL + duplicate detection
+Run cost: ~$11.53
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Results:
+  All fields confirmed (NO_CHANGE):              58  (15.9%)
+  Fields corrected in-place (AUTO_CORRECTED):    69  (19.0%)
+  Place_ID found + fields corrected (AUTO_FILLED): 129  (35.4%)
+  Needs human review (FLAGGED):                 108  (29.7%)
+
+API calls:
+  Place Details:   296  (~$5.03)
+  Text Search:     203  (~$6.50)
+
+Field corrections made:
+  City corrected:         91 rows
+  Country filled/fixed:    5 rows
+  URL added from Google:   5 rows
+
+Flagged breakdown:
+  Duplicate Place_ID (shared with another row):  29  → see Duplicates section
+  No API results found:                          14  → manual lookup needed
+  No location data (non-physical):               13  → expected, no action needed
+  Ambiguous search results:                       7  → have Suggested_Correction
+  Country mismatch:                               3  → manual review
+  Low name match score:                          42  → most have Suggested_Correction
+
+  Rows with a Suggested_Correction ready:    52 / 108
+  Rows needing full manual lookup:           56 / 108
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMBINED TOTALS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Total rows processed:                  2,924
+  Confirmed correct (NO_CHANGE):         1,916  (65.5%)
+  Auto-corrected in-place:                  93   (3.2%)
+  Place_ID found via search:               477  (16.3%)
+  Flagged for review:                      438  (15.0%)
+
+  Rows now with a valid Place_ID:        2,548 / 2,924
+  Rows still without a Place_ID:           376 / 2,924
+
+  Total API cost (both phases):           ~$72.08
+  Remaining free trial credit:           ~$227.92 of $300.00
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DUPLICATE PLACE_ID ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Unique Place_IDs shared by 2+ rows:     145
+  Total rows in a duplicate group:        304
+
+  Cross-phase duplicates (Phase 1 + Phase 2 share same ID):  15
+    These represent cases where a Phase 2 "new" entry maps to the
+    same physical venue as an existing checked entry. Likely the
+    Phase 2 row is a duplicate that should be merged or deleted.
+
+    Examples:
+      - "The French Laundry Restaurant Buyout" / "The French Laundry"
+      - "Chef's Counter at Alchemist" / "Alchemist"
+      - "Aston Martin Gaydon Factory Tour" / "Aston Martin Q Division Car Design"
+
+  Same-phase duplicates (within Phase 1 or Phase 2 only):   130
+    These are typically intentional — two distinct Aurora experiences
+    at the same physical venue (e.g., lunch menu vs. dinner tasting).
+    Review only if the entries look near-identical in name.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADDITIONAL INSIGHTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. STALE PLACE_IDs ARE COMMON
+   348 of 2,045 Tier 1 rows (17%) had an expired Place_ID that returned
+   a 404 from Google. The script recovered new IDs for most via Text Search.
+   This suggests the dataset was built over an extended period and older
+   entries were never refreshed. Recommend a periodic re-validation cadence.
+
+2. PHASE 2 HAS HIGHER CORRECTION RATE
+   Phase 2 (unchecked rows) had a 54.4% auto-correction/fill rate vs
+   14.5% for Phase 1. This is expected — Phase 1 entries had already been
+   operator-reviewed; Phase 2 entries are newer and less curated.
+
+3. CITY FIELD WAS THE MOST COMMON CORRECTION
+   91 rows (mostly Phase 2) had the city field corrected against Google's
+   canonical locality value. Common pattern: a broader region name (e.g.,
+   "Greater London", "New York Metro") used instead of the specific city.
+
+4. 90 ROWS NEED MANUAL PLACE_ID LOOKUP
+   These rows returned no Google results and have no Suggested_Correction.
+   Most likely causes: highly specific/private venues not in Google Maps
+   (private estates, yacht clubs, invitation-only spaces), or entry names
+   too generic for a confident text search match.
+
+5. CROSS-PHASE DUPLICATES ARE LIKELY ENTRY ERRORS
+   The 15 cross-phase duplicate Place_IDs are the highest-priority review
+   items in output_flagged.csv. In most cases the Phase 2 row is either
+   a duplicate of an existing Phase 1 entry or should be consolidated.
+   Filter output_flagged.csv by "DUPLICATE_PLACE_ID" to review these first.
+
+6. NON-PHYSICAL ENTRIES (70 TOTAL)
+   57 Phase 1 + 13 Phase 2 rows have no Place_ID, city, or address.
+   These are experiences without a fixed physical location (charters,
+   custom itineraries, private events). No action needed on these —
+   they cannot and should not have a Place_ID assigned.
