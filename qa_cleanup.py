@@ -444,6 +444,10 @@ def main():
                         help="Resume from checkpoint")
     parser.add_argument("--ops-qa-only", action="store_true",
                         help="Phase 1: only process rows where Ops QA=checked (Place_ID validation only)")
+    parser.add_argument("--phase2-only", action="store_true",
+                        help="Phase 2: only process rows where Ops QA is empty (full QA + duplicate detection)")
+    parser.add_argument("--preserve-existing", action="store_true",
+                        help="Load QA columns from existing output_cleaned.csv to preserve prior phase results")
     args = parser.parse_args()
 
     if not API_KEY:
@@ -464,12 +468,38 @@ def main():
         for col in extra_cols:
             row[col] = ""
 
+    # Preserve prior phase results by loading from output_cleaned.csv
+    # (auto-triggered for Phase 2, since the merged output is the goal)
+    preserve = args.preserve_existing or args.phase2_only
+    if preserve and Path(OUTPUT_CLEANED).exists():
+        with open(OUTPUT_CLEANED, encoding="utf-8-sig", newline="") as f:
+            prior = list(csv.DictReader(f))
+        if len(prior) == len(all_rows):
+            for i, prior_row in enumerate(prior):
+                # Carry over Master_Place_ID if it was corrected/filled in a prior run
+                if prior_row.get("Master_Place_ID", "").strip():
+                    all_rows[i]["Master_Place_ID"] = prior_row["Master_Place_ID"]
+                # Carry over QA columns
+                for col in extra_cols:
+                    all_rows[i][col] = prior_row.get(col, "")
+            log.info("Loaded prior QA results from %s (%d rows)", OUTPUT_CLEANED, len(prior))
+        else:
+            log.warning("Prior %s has %d rows but input has %d — skipping preserve",
+                        OUTPUT_CLEANED, len(prior), len(all_rows))
+
     stats["total"] = len(all_rows)
 
     # Filter candidate rows based on phase
     if args.ops_qa_only:
         candidates = [i for i, r in enumerate(all_rows) if r["Ops QA"].strip() == "checked"]
         log.info("--ops-qa-only: %d rows with Ops QA=checked selected for Phase 1 (Place_ID only)", len(candidates))
+    elif args.phase2_only:
+        candidates = [i for i, r in enumerate(all_rows) if r["Ops QA"].strip() == ""]
+        log.info("--phase2-only: %d rows with Ops QA empty selected for Phase 2 (full QA)", len(candidates))
+        # Clear any stale QA cols on Phase 2 candidates so we re-process cleanly
+        for i in candidates:
+            for col in extra_cols:
+                all_rows[i][col] = ""
     else:
         candidates = list(range(len(all_rows)))
 
@@ -521,6 +551,7 @@ def main():
     run_start = datetime.now()
     processed: list[int] = list(already_done)
 
+    # Phase 1 = Place_ID only; Phase 2 (or default) = full corrections
     place_id_only = args.ops_qa_only
 
     # --- Tier 1
@@ -552,6 +583,37 @@ def main():
                 log.info("Checkpoint saved at %d rows", len(processed))
 
     run_end = datetime.now()
+
+    # --- Duplicate detection (Phase 2): flag any rows sharing the same Place_ID
+    duplicate_count = 0
+    if args.phase2_only or not args.ops_qa_only:
+        pid_map: dict[str, list[int]] = {}
+        for i, r in enumerate(all_rows):
+            pid = r.get("Master_Place_ID", "").strip()
+            if pid.startswith("ChIJ"):
+                pid_map.setdefault(pid, []).append(i)
+
+        for pid, indices in pid_map.items():
+            if len(indices) < 2:
+                continue
+            names = [all_rows[i]["Name"] for i in indices]
+            for i in indices:
+                # Only flag Phase 2 rows; Phase 1 rows with shared Place_ID were
+                # likely curated intentionally (e.g., two experiences at one venue).
+                if args.phase2_only and all_rows[i]["Ops QA"].strip() != "":
+                    continue
+                others = [n for j, n in zip(indices, names) if j != i]
+                existing_flag = all_rows[i].get("Flag_Reason", "")
+                dup_note = f"DUPLICATE_PLACE_ID: shared with {len(others)} other row(s): {others[:3]!r}"
+                if all_rows[i].get("QA_Action") == "FLAGGED":
+                    all_rows[i]["Flag_Reason"] = f"{existing_flag}; {dup_note}" if existing_flag else dup_note
+                else:
+                    all_rows[i]["QA_Action"] = "FLAGGED"
+                    all_rows[i]["Flag_Reason"] = dup_note
+                    stats["flagged"] += 1
+                duplicate_count += 1
+        if duplicate_count:
+            log.info("Duplicate detection: flagged %d rows sharing Place_IDs", duplicate_count)
 
     # --- Write output_cleaned.csv
     with open(OUTPUT_CLEANED, "w", encoding="utf-8-sig", newline="") as f:
@@ -594,6 +656,7 @@ Common issues detected:
   - Missing country filled in:     {stats['fix_country_filled']} rows
   - Missing neighborhood filled in:{stats['fix_neighborhood_filled']} rows
   - URL added from Google:         {stats['fix_url_added']} rows
+  - Duplicate Place_IDs flagged:   {duplicate_count} rows
 """
 
     with open(OUTPUT_LOG, "w", encoding="utf-8") as f:
@@ -602,7 +665,7 @@ Common issues detected:
     print("\n" + log_text)
 
     # Clean up checkpoint only on a complete (non-limited, non-partial-phase) run
-    if args.limit is None and not args.tier1_only and not args.ops_qa_only:
+    if args.limit is None and not args.tier1_only and not args.ops_qa_only and not args.phase2_only:
         if Path(CHECKPOINT_FILE).exists():
             os.remove(CHECKPOINT_FILE)
             log.info("Checkpoint file removed (full run complete)")
