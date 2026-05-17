@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ itinerary.title }}</title>
+  <link rel="stylesheet" href="{{ styles_href }}">
+</head>
+<body>
+
+{# ---------- Cover ---------- #}
+<section class="cover">
+  {% if hero_src %}
+    <div class="cover-image" style="background-image: url('{{ hero_src }}');"></div>
+  {% endif %}
+  <div class="cover-overlay">
+    <h1 class="cover-title">{{ itinerary.title }}</h1>
+    {% if itinerary.member %}
+      <p class="cover-member">Prepared for {{ itinerary.member }}</p>
+    {% endif %}
+  </div>
+</section>
+
+{# ---------- Intro ---------- #}
+{% if itinerary.intro_html %}
+<section class="intro">
+  <h2>Introduction</h2>
+  <div class="intro-body">{{ itinerary.intro_html | safe }}</div>
+</section>
+{% endif %}
+
+{# ---------- Sections ---------- #}
+{% for section in itinerary.sections %}
+<section class="trip-section">
+  <header class="section-header">
+    {% if section.date %}<div class="section-date">{{ section.date }}</div>{% endif %}
+    <h2 class="section-title">{{ section.title }}</h2>
+  </header>
+
+  {% if section.images %}
+    {{ render_image_grid(section.images) }}
+  {% endif %}
+
+  {% if section.body_html %}
+    <div class="section-body">{{ section.body_html | safe }}</div>
+  {% endif %}
+
+  {% for gallery in section.galleries %}
+    <div class="gallery">
+      <h4 class="gallery-name">{{ gallery.name }}</h4>
+      {{ render_image_grid(gallery.images) }}
+    </div>
+  {% endfor %}
+
+  {% if section.attachments %}
+    <div class="attachments">
+      {% for att in section.attachments %}
+        <span class="attachment-pill">{{ att }}</span>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endfor %}
+
+</body>
+</html>

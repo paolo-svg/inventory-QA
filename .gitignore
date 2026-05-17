@@ -5,3 +5,8 @@ output_log.txt
 .checkpoint.json
 __pycache__/
 *.pyc
+
+# pdf_itinerary outputs and client assets
+images/
+*.pdf
+*.html
