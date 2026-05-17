@@ -1,0 +1,406 @@
+/* ---------------------------------------------------------------
+ * Aurora — bespoke travel itinerary print stylesheet
+ * Aligned with Aurora Brand Guidelines 1.0:
+ *   - Type:    Hellix family — substituted with Manrope (free)
+ *   - Palette: Sunrise Cream paper, Fireplace Orange / Mountain Brown
+ *              accents, deep ink, Cool Grey hairlines
+ *   - Cover:   Fireplace Orange → black gradient with AURORA wordmark
+ *   - Photos:  single row, max 3 per image block
+ * ------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Manrope";
+  font-weight: 400;
+  src: url("../assets/fonts/Manrope-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Manrope";
+  font-weight: 500;
+  src: url("../assets/fonts/Manrope-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Manrope";
+  font-weight: 700;
+  src: url("../assets/fonts/Manrope-Bold.ttf") format("truetype");
+}
+
+/* Palette --------------------------------------------------------
+ *   --paper        #FBEDD4   Sunrise Cream  (page background)
+ *   --ink          #1B1A18                  (body copy)
+ *   --soft-ink     #4A4842                  (secondary copy)
+ *   --orange       #D36A0D   Fireplace      (primary accent)
+ *   --brown        #A96E3F   Mountain Brown (secondary accent)
+ *   --grey         #5C605D   Cool Grey      (hairlines, page numbers)
+ *   --green        #5E7540   Forrest Green  (used sparingly)
+ * --------------------------------------------------------------- */
+
+@page {
+  size: A4 portrait;
+  margin: 22mm 18mm 22mm 18mm;
+  background: #FBEDD4;
+  @bottom-center {
+    content: counter(page);
+    font-family: "Manrope", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 400;
+    font-size: 8.5pt;
+    color: #5C605D;
+    letter-spacing: 0.24em;
+  }
+  @top-left {
+    content: string(current-section);
+    font-family: "Manrope", sans-serif;
+    font-weight: 500;
+    font-size: 7.5pt;
+    color: #5C605D;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding-top: 8mm;
+  }
+}
+@page :first {
+  margin: 0;
+  background: #1B1A18;
+  @bottom-center { content: none; }
+  @top-left { content: none; }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #FBEDD4;
+  color: #1B1A18;
+  font-family: "Manrope", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  font-size: 10pt;
+  line-height: 1.55;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  color: #1B1A18;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+p { margin: 0 0 3mm 0; }
+strong { font-weight: 700; color: #1B1A18; }
+em { color: #4A4842; font-style: italic; }
+ul {
+  margin: 0 0 4mm 0;
+  padding-left: 5mm;
+  list-style: none;
+}
+ul li {
+  position: relative;
+  padding-left: 4mm;
+  margin: 0 0 1.6mm 0;
+}
+ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2.6mm;
+  width: 1.6mm;
+  height: 1.6mm;
+  background: #D36A0D;
+  border-radius: 50%;
+}
+
+/* ---------------------------- Cover ---------------------------- */
+.cover {
+  position: relative;
+  width: 210mm;
+  height: 297mm;
+  margin: 0;
+  page-break-after: always;
+  overflow: hidden;
+  background: #1B1A18;
+}
+.cover-image {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background-size: cover;
+  background-position: center;
+}
+/* Aurora "Centred Bottom Large" cover treatment: gradient from warm
+   Fireplace Orange at the bottom up into a deep ink, layered over the
+   hero photo to make the wordmark sit cleanly. */
+.cover-veil {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background:
+    linear-gradient(180deg,
+      rgba(15,12,8,0.55) 0%,
+      rgba(15,12,8,0.20) 30%,
+      rgba(15,12,8,0.35) 55%,
+      rgba(122,55,12,0.78) 80%,
+      rgba(211,106,13,0.95) 100%);
+}
+.cover-stamp {
+  position: absolute;
+  top: 22mm;
+  left: 22mm;
+  color: #FBEDD4;
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 8.5pt;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+}
+.cover-overlay {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 0 22mm 20mm 22mm;
+  color: #FBEDD4;
+  text-align: center;
+}
+.cover-tagline {
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
+  font-size: 11pt;
+  letter-spacing: 0.04em;
+  color: #FBEDD4;
+  margin: 0 0 4mm 0;
+  opacity: 0.92;
+}
+.cover-title {
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 28pt;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  margin: 0 0 6mm 0;
+  color: #FBEDD4;
+  max-width: 150mm;
+  margin-left: auto;
+  margin-right: auto;
+}
+.cover-dates {
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 9pt;
+  letter-spacing: 0.30em;
+  text-transform: uppercase;
+  margin: 0 0 4mm 0;
+  color: #FBEDD4;
+}
+.cover-member {
+  font-family: "Manrope", sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 9.5pt;
+  letter-spacing: 0.10em;
+  margin: 0 0 12mm 0;
+  color: #FBEDD4;
+  opacity: 0.92;
+}
+.cover-wordmark {
+  display: block;
+  width: 92mm;
+  height: auto;
+  margin: 0 auto;
+}
+
+/* ---------------------------- Intro ---------------------------- */
+.intro {
+  page-break-before: always;
+  padding-top: 14mm;
+}
+.intro-eyebrow {
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 8pt;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: #D36A0D;
+  margin: 0 0 6mm 0;
+}
+.intro h2 {
+  font-size: 28pt;
+  font-weight: 500;
+  margin: 0 0 10mm 0;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  max-width: 140mm;
+}
+.intro-body {
+  font-size: 10.5pt;
+  color: #2c2a26;
+  max-width: 150mm;
+  line-height: 1.65;
+}
+
+/* -------------------------- Trip section ------------------------ */
+.trip-section {
+  page-break-before: always;
+  padding-top: 6mm;
+}
+.section-header {
+  margin: 0 0 7mm 0;
+}
+.section-date {
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 8pt;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: #D36A0D;
+  margin: 0 0 3mm 0;
+}
+.section-title {
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 24pt;
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  margin: 0 0 5mm 0;
+  max-width: 165mm;
+  bookmark-level: 1;
+  bookmark-label: content();
+  string-set: current-section content();
+}
+.section-rule {
+  width: 22mm;
+  height: 0.6mm;
+  background: linear-gradient(90deg, #D36A0D 0%, #A96E3F 100%);
+  margin: 0 0 6mm 0;
+}
+
+.section-body {
+  margin: 4mm 0;
+  font-size: 10pt;
+  line-height: 1.6;
+}
+.section-body p { margin: 0 0 3mm 0; }
+.section-body strong { color: #1B1A18; }
+
+/* Day sub-heading inside multi-day sections: a standalone paragraph
+   that contains only a single <strong> tag (e.g. "Day 1, Sunday — …")
+   reads as a sub-divider. WeasyPrint doesn't support :has(), so we
+   style every leading <strong> a bit, and rely on the markdown that
+   day headings sit on their own line. */
+.section-body p strong {
+  letter-spacing: 0.01em;
+}
+.section-body p:only-child strong:only-child,
+.day-heading {
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: 10.5pt;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: #D36A0D;
+  margin-top: 4mm;
+  display: inline-block;
+}
+
+/* Hero strip — the first image block in a section, rendered full-width. */
+.hero-strip {
+  width: 100%;
+  height: 78mm;
+  object-fit: cover;
+  display: block;
+  margin: 0 0 6mm 0;
+  border-radius: 0;
+}
+
+/* Image rows — max 3 images, single row. Always horizontal, equal cells. */
+.img-row {
+  display: grid;
+  gap: 3mm;
+  margin: 5mm 0 6mm 0;
+}
+.img-row.one    { grid-template-columns: 1fr; }
+.img-row.two    { grid-template-columns: 1fr 1fr; }
+.img-row.three  { grid-template-columns: 1fr 1fr 1fr; }
+.img-row img {
+  width: 100%;
+  height: 54mm;
+  object-fit: cover;
+  display: block;
+  border-radius: 0;
+}
+.img-row.one img { height: 90mm; }
+.img-row.two img { height: 66mm; }
+
+/* Galleries ------------------------------------------- */
+.gallery {
+  margin: 6mm 0;
+  page-break-inside: avoid;
+}
+.gallery-name {
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 8pt;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #D36A0D;
+  margin: 0 0 2.5mm 0;
+}
+
+/* Attachment cards (clickable in the final PDF) -------- */
+.attachments {
+  margin: 6mm 0;
+  display: block;
+}
+.attachment-card {
+  display: flex;
+  align-items: center;
+  padding: 4.5mm 5mm;
+  margin: 0 0 3mm 0;
+  background: #F4DDB4;
+  border: 0.3mm solid #D8C29E;
+  border-radius: 0;
+  text-decoration: none;
+  color: inherit;
+  font-family: "Manrope", sans-serif;
+}
+.attachment-icon {
+  width: 8mm;
+  height: 8mm;
+  background: #D36A0D;
+  color: #FBEDD4;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: 11pt;
+  margin-right: 5mm;
+  flex-shrink: 0;
+}
+.attachment-text {
+  display: flex;
+  flex-direction: column;
+}
+.attachment-label {
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  font-size: 7.5pt;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #D36A0D;
+  margin-bottom: 0.5mm;
+}
+.attachment-name {
+  font-size: 11pt;
+  font-weight: 500;
+  color: #1B1A18;
+  letter-spacing: -0.01em;
+}
+
+/* Pagination niceties --------------------------------- */
+.section-header,
+.gallery-name,
+h3, h4 {
+  page-break-after: avoid;
+}
+img { page-break-inside: avoid; }
+.attachment-card { page-break-inside: avoid; }
+
+/* Tighten the leading on long bulleted lists so they don't push photos
+   onto a new page unnecessarily. */
+.section-body ul { margin-bottom: 3mm; }
+.section-body ul li { margin-bottom: 1.2mm; }

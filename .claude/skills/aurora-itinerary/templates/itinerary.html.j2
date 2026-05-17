@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ itinerary.title }}</title>
+  <link rel="stylesheet" href="{{ styles_href }}">
+</head>
+<body>
+
+{# ---------- Cover ---------- #}
+<section class="cover">
+  {% if hero_src %}
+    <div class="cover-image" style="background-image: url('{{ hero_src }}');"></div>
+  {% endif %}
+  <div class="cover-veil"></div>
+  <div class="cover-stamp">Bespoke Travel</div>
+  <div class="cover-overlay">
+    <div class="cover-tagline">Empowering the extraordinary</div>
+    <h1 class="cover-title">{{ itinerary.title }}</h1>
+    {% if dates %}
+      <div class="cover-dates">{{ dates }}</div>
+    {% endif %}
+    {% if itinerary.member %}
+      <p class="cover-member">Prepared for {{ itinerary.member }}</p>
+    {% endif %}
+    <img class="cover-wordmark" src="{{ wordmark_light }}" alt="Aurora" />
+  </div>
+</section>
+
+{# ---------- Intro ---------- #}
+{% if itinerary.intro_html %}
+<section class="intro">
+  <div class="intro-eyebrow">Introduction</div>
+  <h2>{{ itinerary.title }}</h2>
+  <div class="intro-body">{{ itinerary.intro_html | safe }}</div>
+</section>
+{% endif %}
+
+{# ---------- Sections ---------- #}
+{% for section in itinerary.sections %}
+{% set ns = namespace(hero_done=false) %}
+<section class="trip-section">
+  <header class="section-header">
+    {% if section.date %}<div class="section-date">{{ section.date }}</div>{% endif %}
+    <h2 class="section-title">{{ section.title }}</h2>
+    <div class="section-rule"></div>
+  </header>
+
+  {% for block in section.blocks %}
+    {% set bt = block.__class__.__name__ %}
+
+    {% if bt == "TextBlock" %}
+      <div class="section-body">{{ block.html | safe }}</div>
+
+    {% elif bt == "ImagesBlock" %}
+      {% if not ns.hero_done %}
+        {% set hero_url = resolve_one(block.names[0]) %}
+        {% if hero_url %}
+          <img class="hero-strip" src="{{ hero_url }}" />
+        {% endif %}
+        {% set ns.hero_done = true %}
+        {% if block.names|length > 1 %}
+          {{ render_image_grid(block.names[1:]) }}
+        {% endif %}
+      {% else %}
+        {{ render_image_grid(block.names) }}
+      {% endif %}
+
+    {% elif bt == "GalleryBlock" %}
+      <div class="gallery">
+        <h4 class="gallery-name">{{ block.name }}</h4>
+        {{ render_image_grid(block.images) }}
+      </div>
+
+    {% elif bt == "AttachmentBlock" %}
+      <div class="attachments">
+        {% set anchor = attachment_anchor(block.name) %}
+        <a class="attachment-card" id="{{ anchor }}" href="#{{ anchor }}">
+          <span class="attachment-icon">&#x2398;</span>
+          <span class="attachment-text">
+            <span class="attachment-label">Attached document</span>
+            <span class="attachment-name">{{ block.name }}</span>
+          </span>
+        </a>
+      </div>
+    {% endif %}
+  {% endfor %}
+</section>
+{% endfor %}
+
+</body>
+</html>
