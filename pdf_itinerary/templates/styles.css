@@ -1,22 +1,67 @@
-/* Page setup */
+/* ---------------------------------------------------------------
+ * Multimedia itinerary — magazine-style print stylesheet
+ * Targets A4 portrait. Cream paper, deep ink, warm terracotta accent.
+ * ------------------------------------------------------------- */
+
 @page {
   size: A4 portrait;
-  margin: 18mm 16mm 18mm 16mm;
+  margin: 20mm 18mm 22mm 18mm;
+  background: #fbf8f3;
+  @bottom-center {
+    content: counter(page);
+    font-family: "DejaVu Serif", "Georgia", "Times New Roman", serif;
+    font-size: 9pt;
+    color: #8a7e6f;
+    letter-spacing: 0.12em;
+  }
 }
 @page :first {
   margin: 0;
+  @bottom-center { content: none; }
 }
 
 html, body {
   margin: 0;
   padding: 0;
-  font-family: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
-  font-size: 10.5pt;
-  line-height: 1.5;
-  color: #1f2937;
+  background: #fbf8f3;
+  color: #1b1a18;
+  font-family: "DejaVu Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10pt;
+  line-height: 1.55;
 }
 
-/* Cover ----------------------------------------------- */
+h1, h2, h3, h4 {
+  font-family: "DejaVu Serif", "Georgia", "Times New Roman", serif;
+  font-weight: 400;
+  color: #1b1a18;
+  letter-spacing: -0.005em;
+}
+
+p { margin: 0 0 3mm 0; }
+strong { font-weight: 700; color: #1b1a18; }
+em { color: #5b544a; font-style: italic; }
+ul {
+  margin: 0 0 4mm 0;
+  padding-left: 5mm;
+  list-style: none;
+}
+ul li {
+  position: relative;
+  padding-left: 4mm;
+  margin: 0 0 1.6mm 0;
+}
+ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2.4mm;
+  width: 1.6mm;
+  height: 1.6mm;
+  background: #a8553c;
+  border-radius: 50%;
+}
+
+/* ---------------------------- Cover ---------------------------- */
 .cover {
   position: relative;
   width: 210mm;
@@ -24,103 +69,151 @@ html, body {
   margin: 0;
   page-break-after: always;
   overflow: hidden;
+  background: #1b1a18;
 }
 .cover-image {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background-size: cover;
   background-position: center;
 }
+.cover-veil {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(to top,
+    rgba(15,12,8,0.85) 0%,
+    rgba(15,12,8,0.55) 35%,
+    rgba(15,12,8,0.10) 65%,
+    rgba(15,12,8,0.00) 100%);
+}
+.cover-stamp {
+  position: absolute;
+  top: 24mm;
+  left: 22mm;
+  color: #fbf8f3;
+  font-family: "DejaVu Sans", sans-serif;
+  font-size: 9pt;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
 .cover-overlay {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 36mm 18mm 24mm 18mm;
-  color: #ffffff;
-  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.0) 100%);
+  left: 0; right: 0; bottom: 0;
+  padding: 0 22mm 28mm 22mm;
+  color: #fbf8f3;
+}
+.cover-rule {
+  width: 18mm;
+  height: 0.6mm;
+  background: #d49a7a;
+  margin: 0 0 8mm 0;
 }
 .cover-title {
-  font-size: 28pt;
-  font-weight: 700;
+  font-family: "DejaVu Serif", "Georgia", serif;
+  font-size: 42pt;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 0 0 8mm 0;
+  color: #fbf8f3;
+}
+.cover-dates {
+  font-family: "DejaVu Sans", sans-serif;
+  font-size: 11pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   margin: 0 0 6mm 0;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  color: #f3e6d4;
 }
 .cover-member {
+  font-family: "DejaVu Serif", serif;
+  font-style: italic;
   font-size: 13pt;
   margin: 0;
-  opacity: 0.95;
+  color: #f3e6d4;
 }
 
-/* Intro ----------------------------------------------- */
+/* ---------------------------- Intro ---------------------------- */
 .intro {
   page-break-before: always;
+  padding-top: 14mm;
+}
+.intro-eyebrow {
+  font-family: "DejaVu Sans", sans-serif;
+  font-size: 8.5pt;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #a8553c;
+  margin: 0 0 4mm 0;
 }
 .intro h2 {
-  font-size: 18pt;
-  margin: 0 0 6mm 0;
-  border-bottom: 2px solid #d1d5db;
-  padding-bottom: 3mm;
+  font-size: 26pt;
+  margin: 0 0 8mm 0;
+  line-height: 1.12;
+  max-width: 130mm;
 }
 .intro-body {
   font-size: 11pt;
-  color: #374151;
+  color: #2c2a26;
+  max-width: 150mm;
 }
 
-/* Trip sections --------------------------------------- */
+/* -------------------------- Trip section ------------------------ */
 .trip-section {
   page-break-before: always;
+  padding-top: 8mm;
 }
 .section-header {
-  margin: 0 0 6mm 0;
-  padding: 0 0 4mm 0;
-  border-bottom: 2px solid #0f766e;
+  margin: 0 0 7mm 0;
 }
 .section-date {
+  font-family: "DejaVu Sans", sans-serif;
+  font-size: 8.5pt;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #0f766e;
-  font-size: 9pt;
-  font-weight: 600;
-  margin-bottom: 2mm;
+  color: #a8553c;
+  margin: 0 0 3mm 0;
 }
 .section-title {
-  font-size: 19pt;
-  font-weight: 700;
-  margin: 0;
-  color: #111827;
-  line-height: 1.2;
+  font-size: 22pt;
+  margin: 0 0 4mm 0;
+  line-height: 1.15;
+  max-width: 165mm;
+  /* WeasyPrint: emit a PDF bookmark for every section title */
+  bookmark-level: 1;
+  bookmark-label: content();
+  string-set: current-section content();
+}
+.section-rule {
+  width: 16mm;
+  height: 0.5mm;
+  background: #c9a37e;
+  margin: 0 0 6mm 0;
 }
 
 .section-body {
-  margin-top: 4mm;
+  margin-top: 5mm;
+  font-size: 10pt;
 }
-.section-body p {
-  margin: 0 0 3mm 0;
-}
-.section-body ul {
-  margin: 0 0 3mm 0;
-  padding-left: 5mm;
-}
-.section-body li {
-  margin: 0 0 1.5mm 0;
-}
-.section-body strong {
-  color: #111827;
-}
-.section-body em {
-  color: #6b7280;
+.section-body p { margin: 0 0 3mm 0; }
+.section-body strong { color: #1b1a18; }
+
+/* Image hero (first image in a section, when present) */
+.hero-strip {
+  width: 100%;
+  height: 88mm;
+  object-fit: cover;
+  display: block;
+  margin: 0 0 7mm 0;
+  border-radius: 1.5mm;
 }
 
-/* Image grids ----------------------------------------- */
+/* Image grids ------------------------------------------- */
 .img-grid {
   display: grid;
   gap: 3mm;
-  margin: 4mm 0;
+  margin: 5mm 0;
 }
 .img-grid.one    { grid-template-columns: 1fr; }
 .img-grid.two    { grid-template-columns: 1fr 1fr; }
@@ -129,47 +222,75 @@ html, body {
 
 .img-grid img {
   width: 100%;
-  height: 55mm;
+  height: 52mm;
   object-fit: cover;
-  border-radius: 2mm;
   display: block;
+  border-radius: 1.5mm;
 }
-.img-grid.one img {
-  height: 90mm;
-}
-.img-grid.two img {
-  height: 65mm;
-}
+.img-grid.one img   { height: 82mm; }
+.img-grid.two img   { height: 62mm; }
 
 /* Galleries ------------------------------------------- */
 .gallery {
-  margin-top: 6mm;
+  margin-top: 7mm;
   page-break-inside: avoid;
 }
 .gallery-name {
-  font-size: 10pt;
+  font-family: "DejaVu Sans", sans-serif;
+  font-size: 8.5pt;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #0f766e;
-  margin: 0 0 2mm 0;
+  color: #a8553c;
+  margin: 0 0 2.5mm 0;
 }
 
-/* Attachments ----------------------------------------- */
+/* Attachment cards (clickable in the final PDF) -------- */
 .attachments {
-  margin-top: 4mm;
+  margin: 7mm 0 4mm 0;
+  display: block;
 }
-.attachment-pill {
-  display: inline-block;
-  padding: 1.5mm 4mm;
-  margin: 0 2mm 2mm 0;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  font-size: 9pt;
-  color: #374151;
+.attachment-card {
+  display: flex;
+  align-items: center;
+  padding: 4mm 5mm;
+  margin: 0 0 3mm 0;
+  background: #f1ead9;
+  border: 0.4mm solid #d8c9a8;
+  border-radius: 1.5mm;
+  text-decoration: none;
+  color: inherit;
+  font-family: "DejaVu Sans", sans-serif;
+  /* The id is set per-card; pikepdf rewrites these into GoToE actions */
 }
-.attachment-pill::before {
-  content: "📎 ";
+.attachment-icon {
+  width: 7mm;
+  height: 7mm;
+  background: #a8553c;
+  color: #fbf8f3;
+  border-radius: 1mm;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "DejaVu Serif", serif;
+  font-size: 12pt;
+  margin-right: 4mm;
+  flex-shrink: 0;
+}
+.attachment-text {
+  display: flex;
+  flex-direction: column;
+}
+.attachment-label {
+  font-size: 8pt;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #a8553c;
+  margin-bottom: 0.5mm;
+}
+.attachment-name {
+  font-size: 11pt;
+  font-weight: 600;
+  color: #1b1a18;
 }
 
 /* Pagination niceties --------------------------------- */
@@ -178,6 +299,5 @@ html, body {
 h3, h4 {
   page-break-after: avoid;
 }
-img {
-  page-break-inside: avoid;
-}
+img { page-break-inside: avoid; }
+.attachment-card { page-break-inside: avoid; }
