@@ -13,9 +13,9 @@
     <div class="cover-image" style="background-image: url('{{ hero_src }}');"></div>
   {% endif %}
   <div class="cover-veil"></div>
-  <div class="cover-stamp">Aurora &middot; Bespoke Travel</div>
+  <div class="cover-stamp">Bespoke Travel</div>
   <div class="cover-overlay">
-    <div class="cover-rule"></div>
+    <div class="cover-tagline">Empowering the extraordinary</div>
     <h1 class="cover-title">{{ itinerary.title }}</h1>
     {% if dates %}
       <div class="cover-dates">{{ dates }}</div>
@@ -23,6 +23,7 @@
     {% if itinerary.member %}
       <p class="cover-member">Prepared for {{ itinerary.member }}</p>
     {% endif %}
+    <img class="cover-wordmark" src="{{ wordmark_light }}" alt="Aurora" />
   </div>
 </section>
 
@@ -37,8 +38,7 @@
 
 {# ---------- Sections ---------- #}
 {% for section in itinerary.sections %}
-{% set hero_image = section.images[0] if section.images else None %}
-{% set rest_images = section.images[1:] if section.images and section.images|length > 1 else [] %}
+{% set ns = namespace(hero_done=false) %}
 <section class="trip-section">
   <header class="section-header">
     {% if section.date %}<div class="section-date">{{ section.date }}</div>{% endif %}
@@ -46,42 +46,45 @@
     <div class="section-rule"></div>
   </header>
 
-  {% if hero_image %}
-    {% set hero_url = resolve_one(hero_image) %}
-    {% if hero_url %}
-      <img class="hero-strip" src="{{ hero_url }}" />
-    {% endif %}
-  {% endif %}
+  {% for block in section.blocks %}
+    {% set bt = block.__class__.__name__ %}
 
-  {% if section.body_html %}
-    <div class="section-body">{{ section.body_html | safe }}</div>
-  {% endif %}
+    {% if bt == "TextBlock" %}
+      <div class="section-body">{{ block.html | safe }}</div>
 
-  {% if rest_images %}
-    {{ render_image_grid(rest_images) }}
-  {% endif %}
+    {% elif bt == "ImagesBlock" %}
+      {% if not ns.hero_done %}
+        {% set hero_url = resolve_one(block.names[0]) %}
+        {% if hero_url %}
+          <img class="hero-strip" src="{{ hero_url }}" />
+        {% endif %}
+        {% set ns.hero_done = true %}
+        {% if block.names|length > 1 %}
+          {{ render_image_grid(block.names[1:]) }}
+        {% endif %}
+      {% else %}
+        {{ render_image_grid(block.names) }}
+      {% endif %}
 
-  {% for gallery in section.galleries %}
-    <div class="gallery">
-      <h4 class="gallery-name">{{ gallery.name }}</h4>
-      {{ render_image_grid(gallery.images) }}
-    </div>
-  {% endfor %}
+    {% elif bt == "GalleryBlock" %}
+      <div class="gallery">
+        <h4 class="gallery-name">{{ block.name }}</h4>
+        {{ render_image_grid(block.images) }}
+      </div>
 
-  {% if section.attachments %}
-    <div class="attachments">
-      {% for att in section.attachments %}
-        {% set anchor = attachment_anchor(att) %}
+    {% elif bt == "AttachmentBlock" %}
+      <div class="attachments">
+        {% set anchor = attachment_anchor(block.name) %}
         <a class="attachment-card" id="{{ anchor }}" href="#{{ anchor }}">
           <span class="attachment-icon">&#x2398;</span>
           <span class="attachment-text">
             <span class="attachment-label">Attached document</span>
-            <span class="attachment-name">{{ att }}</span>
+            <span class="attachment-name">{{ block.name }}</span>
           </span>
         </a>
-      {% endfor %}
-    </div>
-  {% endif %}
+      </div>
+    {% endif %}
+  {% endfor %}
 </section>
 {% endfor %}
 

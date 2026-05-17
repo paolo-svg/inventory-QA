@@ -78,12 +78,11 @@ def _build_image_resolver(images_dir: Path, strict: bool):
 
 def _render_image_grid_factory(resolve):
     def render(names: list[str]) -> Markup:
-        urls = [u for u in (resolve(n) for n in names) if u]
+        urls = [u for u in (resolve(n) for n in names) if u][:3]
         if not urls:
             return Markup("")
-        count = len(urls)
-        klass = "one" if count == 1 else "two" if count == 2 else "three" if count == 3 else "many"
-        parts = [f'<div class="img-grid {klass}">']
+        klass = {1: "one", 2: "two", 3: "three"}[len(urls)]
+        parts = [f'<div class="img-row {klass}">']
         for u in urls:
             parts.append(f'<img src="{u}" />')
         parts.append("</div>")
@@ -139,6 +138,8 @@ def render_html(itinerary, images_dir: Path, strict: bool) -> tuple[str, list[st
         render_image_grid=render_image_grid,
         resolve_one=resolve,
         attachment_anchor=attachment_anchor,
+        wordmark_dark=_file_uri(ASSETS_DIR / "aurora_wordmark_dark.png"),
+        wordmark_light=_file_uri(ASSETS_DIR / "aurora_wordmark_light.png"),
     )
     return html, hits, misses
 

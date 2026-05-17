@@ -9,6 +9,11 @@ Source format conventions (see itineraries/*.md):
   [Attachment: <name>]     -> attachment pill
   Hero image: [Image: x]   -> document hero image (appears in front-matter)
   Member: <name>           -> member, from front-matter
+
+Inside a section, content is captured as an ordered `blocks` list so the
+renderer can interleave text and images in source order. This is what fixes
+multi-day cruise sections like Ecoventura where images for each day need
+to sit under their own day heading rather than bunched at the end.
 """
 
 from __future__ import annotations
@@ -17,7 +22,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from markdown_it import MarkdownIt
 
@@ -40,15 +45,57 @@ class Gallery:
     images: list[str] = field(default_factory=list)
 
 
+# --- Ordered content blocks ----------------------------------------------
+
+@dataclass
+class TextBlock:
+    html: str
+
+
+@dataclass
+class ImagesBlock:
+    names: list[str] = field(default_factory=list)
+
+
+@dataclass
+class GalleryBlock:
+    name: str
+    images: list[str] = field(default_factory=list)
+
+
+@dataclass
+class AttachmentBlock:
+    name: str
+
+
+Block = Union[TextBlock, ImagesBlock, GalleryBlock, AttachmentBlock]
+
+
 @dataclass
 class Section:
     raw_header: str
     date: str
     title: str
-    body_html: str = ""
-    images: list[str] = field(default_factory=list)
-    galleries: list[Gallery] = field(default_factory=list)
-    attachments: list[str] = field(default_factory=list)
+    blocks: list[Block] = field(default_factory=list)
+
+    # Convenience views over `blocks` — kept so the pikepdf attachment-embedding
+    # path in generate.py keeps working without changes.
+    @property
+    def images(self) -> list[str]:
+        out: list[str] = []
+        for b in self.blocks:
+            if isinstance(b, ImagesBlock):
+                out.extend(b.names)
+        return out
+
+    @property
+    def galleries(self) -> list[Gallery]:
+        return [Gallery(name=b.name, images=list(b.images))
+                for b in self.blocks if isinstance(b, GalleryBlock)]
+
+    @property
+    def attachments(self) -> list[str]:
+        return [b.name for b in self.blocks if isinstance(b, AttachmentBlock)]
 
 
 @dataclass
@@ -98,22 +145,29 @@ def parse(md_text: str) -> Itinerary:
         m = IMAGE_RE.match(hero)
         itinerary.hero_image = m.group(1).strip() if m else hero
 
-    # Buffers for the current block
     current_section: Optional[Section] = None
-    current_gallery: Optional[Gallery] = None
-    body_buf: list[str] = []
+    current_gallery: Optional[GalleryBlock] = None
+    text_buf: list[str] = []
     intro_buf: list[str] = []
     in_section = False
 
-    def flush_body():
-        nonlocal body_buf
+    def flush_text():
+        nonlocal text_buf
         if not current_section:
             return
-        text = "\n".join(body_buf).strip()
+        text = "\n".join(text_buf).strip()
         if text:
-            existing = current_section.body_html
-            current_section.body_html = (existing + "\n" + _md_to_html(text)).strip()
-        body_buf = []
+            current_section.blocks.append(TextBlock(html=_md_to_html(text)))
+        text_buf = []
+
+    def last_images_block() -> Optional[ImagesBlock]:
+        """If the section's last block is an open ImagesBlock, return it so
+        consecutive [Image:] lines coalesce into one row."""
+        if current_section and current_section.blocks:
+            tail = current_section.blocks[-1]
+            if isinstance(tail, ImagesBlock):
+                return tail
+        return None
 
     for raw in lines:
         line = raw.rstrip()
@@ -126,7 +180,7 @@ def parse(md_text: str) -> Itinerary:
         m_section = SECTION_RE.match(line)
         if m_section:
             if current_section:
-                flush_body()
+                flush_text()
                 itinerary.sections.append(current_section)
             elif intro_buf:
                 itinerary.intro_html = _md_to_html("\n".join(intro_buf))
@@ -147,7 +201,6 @@ def parse(md_text: str) -> Itinerary:
 
         m_h2 = H2_RE.match(line)
         if m_h2 and not in_section:
-            # Skip the heading line itself; its content flows into intro_buf.
             intro_buf.append(line)
             continue
 
@@ -155,39 +208,43 @@ def parse(md_text: str) -> Itinerary:
         if m_img:
             name = m_img.group(1).strip()
             if current_section:
-                flush_body()
+                flush_text()
                 if current_gallery is not None:
                     current_gallery.images.append(name)
                 else:
-                    current_section.images.append(name)
+                    block = last_images_block()
+                    if block is None:
+                        block = ImagesBlock()
+                        current_section.blocks.append(block)
+                    block.names.append(name)
             continue
 
         m_gal = GALLERY_RE.match(line)
         if m_gal:
             if current_section:
-                flush_body()
-                current_gallery = Gallery(name=m_gal.group(1).strip())
-                current_section.galleries.append(current_gallery)
+                flush_text()
+                current_gallery = GalleryBlock(name=m_gal.group(1).strip())
+                current_section.blocks.append(current_gallery)
             continue
 
         m_att = ATTACHMENT_RE.match(line)
         if m_att:
             if current_section:
-                flush_body()
-                current_section.attachments.append(m_att.group(1).strip())
+                flush_text()
+                current_section.blocks.append(AttachmentBlock(name=m_att.group(1).strip()))
             continue
 
-        # End any open gallery as soon as a non-image, non-gallery line appears.
+        # Any non-image, non-gallery line closes an open gallery.
         if current_gallery is not None and line.strip():
             current_gallery = None
 
         if current_section:
-            body_buf.append(line)
+            text_buf.append(line)
         else:
             intro_buf.append(line)
 
     if current_section:
-        flush_body()
+        flush_text()
         itinerary.sections.append(current_section)
     elif intro_buf and not itinerary.intro_html:
         itinerary.intro_html = _md_to_html("\n".join(intro_buf))
@@ -211,7 +268,6 @@ def resolve_image(name: str, images_dir: Path) -> Optional[Path]:
     stem_target = Path(name).stem.lower()
     given_ext = Path(name).suffix.lower()
 
-    # Single scan of the directory.
     for entry in images_dir.iterdir():
         if not entry.is_file():
             continue
