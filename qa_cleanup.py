@@ -461,10 +461,11 @@ def main():
 
     extra_cols = ["QA_Action", "QA_Changes", "QA_Proof", "QA_Confidence",
                   "Flag_Reason", "Suggested_Correction"]
-    # Output schema: original columns + single Flag_Notes column.
-    # The extra_cols above are kept in-memory for internal tracking and the log,
-    # but are NOT written to the CSV outputs.
-    output_fieldnames = original_fieldnames + ["Flag_Notes"]
+    # Output schemas:
+    # - cleaned: original columns only (no new columns, corrections applied in-place)
+    # - flagged: original columns + Flag_Notes (review queue)
+    cleaned_fieldnames = original_fieldnames
+    flagged_fieldnames = original_fieldnames + ["Flag_Notes"]
 
     # Initialize extra cols on every row
     for row in all_rows:
@@ -639,17 +640,17 @@ def main():
         else:
             r["Flag_Notes"] = ""
 
-    # --- Write output_cleaned.csv (original columns + Flag_Notes only)
+    # --- Write output_cleaned.csv (original 76 columns only, corrections in-place)
     with open(OUTPUT_CLEANED, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=output_fieldnames, extrasaction="ignore")
+        writer = csv.DictWriter(f, fieldnames=cleaned_fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(all_rows)
     log.info("Wrote %s", OUTPUT_CLEANED)
 
-    # --- Write output_flagged.csv (subset where Flag_Notes is populated)
+    # --- Write output_flagged.csv (original columns + Flag_Notes, flagged rows only)
     flagged_rows = [r for r in all_rows if r.get("Flag_Notes", "").strip()]
     with open(OUTPUT_FLAGGED, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=output_fieldnames, extrasaction="ignore")
+        writer = csv.DictWriter(f, fieldnames=flagged_fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(flagged_rows)
     log.info("Wrote %s (%d flagged rows)", OUTPUT_FLAGGED, len(flagged_rows))
