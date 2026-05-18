@@ -461,7 +461,10 @@ def main():
 
     extra_cols = ["QA_Action", "QA_Changes", "QA_Proof", "QA_Confidence",
                   "Flag_Reason", "Suggested_Correction"]
-    output_fieldnames = original_fieldnames + extra_cols
+    # Output schema: original columns + single Flag_Notes column.
+    # The extra_cols above are kept in-memory for internal tracking and the log,
+    # but are NOT written to the CSV outputs.
+    output_fieldnames = original_fieldnames + ["Flag_Notes"]
 
     # Initialize extra cols on every row
     for row in all_rows:
@@ -479,9 +482,21 @@ def main():
                 # Carry over Master_Place_ID if it was corrected/filled in a prior run
                 if prior_row.get("Master_Place_ID", "").strip():
                     all_rows[i]["Master_Place_ID"] = prior_row["Master_Place_ID"]
-                # Carry over QA columns
-                for col in extra_cols:
-                    all_rows[i][col] = prior_row.get(col, "")
+                # Reconstruct QA state from Flag_Notes (new schema) or from
+                # legacy extra_cols (old schema), whichever is present.
+                flag_notes = prior_row.get("Flag_Notes", "").strip()
+                if flag_notes:
+                    all_rows[i]["QA_Action"] = "FLAGGED"
+                    if " | Suggested Place_ID: " in flag_notes:
+                        reason, sugg = flag_notes.split(" | Suggested Place_ID: ", 1)
+                        all_rows[i]["Flag_Reason"] = reason
+                        all_rows[i]["Suggested_Correction"] = sugg
+                    else:
+                        all_rows[i]["Flag_Reason"] = flag_notes
+                else:
+                    for col in extra_cols:
+                        if col in prior_row:
+                            all_rows[i][col] = prior_row.get(col, "")
             log.info("Loaded prior QA results from %s (%d rows)", OUTPUT_CLEANED, len(prior))
         else:
             log.warning("Prior %s has %d rows but input has %d — skipping preserve",
@@ -615,15 +630,24 @@ def main():
         if duplicate_count:
             log.info("Duplicate detection: flagged %d rows sharing Place_IDs", duplicate_count)
 
-    # --- Write output_cleaned.csv
+    # Populate Flag_Notes from internal tracking (only for FLAGGED rows)
+    for r in all_rows:
+        if r.get("QA_Action") == "FLAGGED":
+            reason = r.get("Flag_Reason", "").strip()
+            sugg = r.get("Suggested_Correction", "").strip()
+            r["Flag_Notes"] = f"{reason} | Suggested Place_ID: {sugg}" if sugg else reason
+        else:
+            r["Flag_Notes"] = ""
+
+    # --- Write output_cleaned.csv (original columns + Flag_Notes only)
     with open(OUTPUT_CLEANED, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=output_fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(all_rows)
     log.info("Wrote %s", OUTPUT_CLEANED)
 
-    # --- Write output_flagged.csv
-    flagged_rows = [r for r in all_rows if r.get("QA_Action") == "FLAGGED"]
+    # --- Write output_flagged.csv (subset where Flag_Notes is populated)
+    flagged_rows = [r for r in all_rows if r.get("Flag_Notes", "").strip()]
     with open(OUTPUT_FLAGGED, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=output_fieldnames, extrasaction="ignore")
         writer.writeheader()
